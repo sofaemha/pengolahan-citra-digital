@@ -1,10 +1,31 @@
 #include <Keypad.h>
 #include <LiquidCrystal.h>
 #include <Servo.h>
+
 #define Input_Lenght 16
 #define Password_Lenght 6
 #define pin_servo 8
 #define pin_piezo 9
+
+#define NOTE_C  523
+#define NOTE_D  587
+#define NOTE_E  659
+#define NOTE_F  698
+#define NOTE_G  784
+#define NOTE_A  880
+#define NOTE_B  988
+
+int melody_open[] = { NOTE_C, 0, NOTE_D, NOTE_E, 0, NOTE_F, 0, NOTE_G, NOTE_A, NOTE_B };
+int note_open_durations[] = { 4, 5, 4, 4, 5, 4, 4, 4, 5, 5 };
+
+int melody_wrong[] = { NOTE_C, NOTE_D };
+int note_wrong_durations[] = { 3, 4 };
+
+int melody_correct[] = { NOTE_A, NOTE_A };
+int note_correct_durations[] = { 5, 5 };
+
+int melody_alert[] = { NOTE_E, NOTE_B };
+int note_alert_durations[] = { 4, 4 };
 
 Servo servo;
 LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);
@@ -14,7 +35,7 @@ int password_counter = 0;
 int a = 0, b = 0, c = 0, d = 0;
 String question;
 char Data[Input_Lenght];
-char Master[Password_Lenght] = "9"; // GANTI PASSWORD
+char Master[Password_Lenght] = "741"; // GANTI PASSWORD
 bool password_status;
 bool door = true;
 
@@ -33,6 +54,16 @@ byte column_pins[columns] = {5, 6, 7};
 byte data_count = 0;
 
 Keypad customKeypad(makeKeymap(keys), row_pins, column_pins, rows, columns);
+
+void tone_melody(int melody[], int noteDurations[], int item) {
+  for (int thisNote = 0; thisNote < item; thisNote++) {
+    int noteDuration = 1000 / noteDurations[thisNote];
+    tone(9, melody[thisNote], noteDuration);
+    int pause = noteDuration * 1.25;
+    delay(pause);
+    noTone(9);
+  }
+}
 
 void lcd_clear(int time_delay = 1000) {
   delay(time_delay);
@@ -56,7 +87,8 @@ void servo_open() {
   for (position = 93; position >= 0; position--) { 
     servo.write(position);
     delay(15);
-  }
+  }  
+  tone_melody(melody_open, note_open_durations, 10);
 }
 
 void servo_close() {
@@ -65,6 +97,7 @@ void servo_close() {
     servo.write(position);
     delay(15);
   }
+  tone_melody(melody_wrong, note_wrong_durations, 2);
 }
 
 void servo_setup(String top_message, String bottom_message) {
@@ -86,7 +119,6 @@ void uno_captcha() {
 
 void setup() {
   servo_setup("  ARDUINO DOOR  ", " INITIALIZATION ");
-  uno_captcha();
   lcd_clear();
 }
 
@@ -101,6 +133,7 @@ void loop() {
     }
   } else {
     if (password_counter >= 3) {
+      tone_melody(melody_alert, note_alert_durations, 2);
       captcha();
     }
     else {
@@ -108,7 +141,6 @@ void loop() {
     }
   }
 }
-
 
 void captcha() {
   question = String(a) + " + " + String(b) + " :";
@@ -126,15 +158,17 @@ void captcha() {
     bool check_password = (answer == c);
     if (check_password) {
       lcd_clear();
-      servo_open();
-      door = 0;
-      lcd_message(" SELAMAT DATANG ", "SOFA MACHABBA H.", false);
+      tone_melody(melody_correct, note_correct_durations, 2);
       password_counter = 0;
+      uno_captcha();
     } else {
       lcd_clear();
-      lcd_message(" WRONG  CAPTCHA ", "----------------");
+      lcd_message(" WRONG PASSWORD ", "----------------", false);
+      tone_melody(melody_wrong, note_wrong_durations, 2);
+      lcd_clear();
       password_counter++;
       door = 1;
+      uno_captcha();
     }
     clear_data();
   } else if (customKey) {
@@ -147,7 +181,6 @@ void captcha() {
 
 void open() {
   lcd.setCursor(0, 0);
-  // lcd.print(Data);
   lcd.print(" ENTER PASSWORD ");
   customKey = customKeypad.getKey();
   if (customKey == '*') {
@@ -164,11 +197,15 @@ void open() {
       door = 0;
       lcd_message(" SELAMAT DATANG ", "SOFA MACHABBA H.", false);
       password_counter = 0;
+      uno_captcha();
     } else {
       lcd_clear();
-      lcd_message(" WRONG PASSWORD ", "----------------");
+      lcd_message(" WRONG PASSWORD ", "----------------", false);
+      tone_melody(melody_wrong, note_wrong_durations, 2);
+      lcd_clear();
       password_counter++;
       door = 1;
+      uno_captcha();
     }
     clear_data();
   } else if (customKey) {
